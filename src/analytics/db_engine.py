@@ -2,24 +2,51 @@ import os
 import sqlite3
 import pandas as pd
 from pathlib import Path
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
 from src.utils.logger import get_logger
 
-load_dotenv()
+# Gracefully load environment variables from .env if python-dotenv is present
+_ROOT = Path(__file__).resolve().parents[2]
+try:
+    from dotenv import load_dotenv
+    load_dotenv(_ROOT / ".env")
+except ImportError:
+    env_file = _ROOT / ".env"
+    if env_file.exists():
+        with open(env_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+# SQLAlchemy optional import with native sqlite3 compatibility
+try:
+    from sqlalchemy import create_engine, text
+    _HAS_SQLALCHEMY = True
+except ImportError:
+    create_engine = None
+    text = None
+    _HAS_SQLALCHEMY = False
+
 logger = get_logger("db_engine")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///database/ecommerce.db")
-DATABASE_DIR = Path("database")
+DATABASE_DIR = _ROOT / "database"
+
 
 def get_db_engine():
-    """Create and return SQLAlchemy database engine."""
-    # Ensure database folder exists for SQLite
-    if DATABASE_URL.startswith("sqlite"):
-        db_path = DATABASE_URL.replace("sqlite:///", "")
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    engine = create_engine(DATABASE_URL, echo=False)
-    return engine
+    """Create and return SQLAlchemy database engine or SQLite connection wrapper."""
+    if _HAS_SQLALCHEMY:
+        if DATABASE_URL.startswith("sqlite"):
+            db_path = DATABASE_URL.replace("sqlite:///", "")
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        return create_engine(DATABASE_URL, echo=False)
+    else:
+        # Fallback to direct SQLite connection wrapper
+        db_path = DATABASE_DIR / "ecommerce.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        return sqlite3.connect(str(db_path))
+
 
 def init_database_schema(engine=None):
     """Execute schema.sql to create database tables and indexes."""
@@ -34,25 +61,32 @@ def init_database_schema(engine=None):
     with open(schema_path, "r", encoding="utf-8") as f:
         schema_sql = f.read()
         
-    logger.info(f"Initializing database schema via engine {engine.url}...")
-    
-    if engine.url.drivername.startswith("sqlite"):
-        # SQLite connection handles multi-statement execute script cleanly
-        raw_conn = engine.raw_connection()
-        try:
-            cursor = raw_conn.cursor()
-            cursor.executescript(schema_sql)
-            raw_conn.commit()
-            logger.info("SQLite schema initialized successfully.")
-        finally:
-            raw_conn.close()
+    if _HAS_SQLALCHEMY and hasattr(engine, "url"):
+        logger.info(f"Initializing database schema via engine {engine.url}...")
+        if engine.url.drivername.startswith("sqlite"):
+            raw_conn = engine.raw_connection()
+            try:
+                cursor = raw_conn.cursor()
+                cursor.executescript(schema_sql)
+                raw_conn.commit()
+                logger.info("SQLite schema initialized successfully.")
+            finally:
+                raw_conn.close()
+        else:
+            with engine.begin() as conn:
+                for statement in schema_sql.split(";"):
+                    stmt = statement.strip()
+                    if stmt:
+                        conn.execute(text(stmt))
+            logger.info("PostgreSQL schema initialized successfully.")
     else:
-        with engine.begin() as conn:
-            for statement in schema_sql.split(";"):
-                stmt = statement.strip()
-                if stmt:
-                    conn.execute(text(stmt))
-        logger.info("PostgreSQL schema initialized successfully.")
+        # Direct sqlite3 connection
+        conn = engine if isinstance(engine, sqlite3.Connection) else sqlite3.connect(str(DATABASE_DIR / "ecommerce.db"))
+        cursor = conn.cursor()
+        cursor.executescript(schema_sql)
+        conn.commit()
+        logger.info("SQLite schema initialized successfully (native).")
+
 
 def populate_database(df_clean: pd.DataFrame, engine=None):
     """Populate fact and dimension tables from cleaned DataFrame."""
@@ -125,6 +159,7 @@ def populate_database(df_clean: pd.DataFrame, engine=None):
     date_dim.to_sql("dim_date", con=engine, if_exists="append", index=False)
     logger.info("dim_date table populated.")
 
+
 def run_sql_query(query_str_or_file: str, engine=None) -> pd.DataFrame:
     """Execute SQL query string or read SQL query from file path. Handles multi-statement files."""
     if engine is None:
@@ -140,14 +175,22 @@ def run_sql_query(query_str_or_file: str, engine=None) -> pd.DataFrame:
     statements = [s.strip() for s in sql_text.split(";") if s.strip()]
     
     df = pd.DataFrame()
-    with engine.connect() as conn:
+    if _HAS_SQLALCHEMY and hasattr(engine, "connect"):
+        with engine.connect() as conn:
+            for stmt in statements:
+                lines = [l for l in stmt.split('\n') if not l.strip().startswith('--')]
+                clean_stmt = '\n'.join(lines).strip()
+                if clean_stmt:
+                    df = pd.read_sql_query(text(clean_stmt), conn)
+    else:
+        conn = engine if isinstance(engine, sqlite3.Connection) else sqlite3.connect(str(DATABASE_DIR / "ecommerce.db"))
         for stmt in statements:
-            # Skip pure comment blocks
             lines = [l for l in stmt.split('\n') if not l.strip().startswith('--')]
             clean_stmt = '\n'.join(lines).strip()
             if clean_stmt:
-                df = pd.read_sql_query(text(clean_stmt), conn)
+                df = pd.read_sql_query(clean_stmt, conn)
     return df
+
 
 if __name__ == "__main__":
     eng = get_db_engine()

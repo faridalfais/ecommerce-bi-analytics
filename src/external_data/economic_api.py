@@ -7,7 +7,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger("external_data")
 
-EXTERNAL_DATA_DIR = Path("data/external")
+_ROOT = Path(__file__).resolve().parents[2]
+EXTERNAL_DATA_DIR = _ROOT / "data" / "external"
 
 # World Bank API indicators for United Kingdom (GBR)
 INDICATORS = {

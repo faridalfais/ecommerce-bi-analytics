@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Ensure repository root is on sys.path for Streamlit Cloud deployment
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import streamlit as st
 import pandas as pd
 from src.utils.i18n import get_text
@@ -33,7 +41,7 @@ with col1:
 with col2:
     st.subheader("Top 10 Revenue-Generating SKUs")
     st.dataframe(
-        prod_summary[['StockCode', 'Description', 'total_revenue', 'total_units_sold', 'avg_price']].head(10),
+        prod_summary[['StockCode', 'Description', 'total_revenue', 'total_units_sold', 'avg_price']],
         use_container_width=True,
     )
 

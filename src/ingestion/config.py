@@ -7,6 +7,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger("ingestion_config")
 
+_ROOT = Path(__file__).resolve().parents[2]
+
 # Canonical internal column names required by analytics/database pipeline
 REQUIRED_COLUMNS = {
     "Invoice": "Transaction/Invoice identifier (string or integer)",
@@ -80,7 +82,9 @@ def load_custom_column_mapping(mapping_path: Optional[Path] = None) -> Dict[str,
       { "CanonicalColName": "raw_col_name" }
     """
     if mapping_path is None:
-        mapping_path = Path("data/raw/custom/column_mapping.json")
+        mapping_path = _ROOT / "data" / "raw" / "custom" / "column_mapping.json"
+        if not mapping_path.exists():
+            mapping_path = Path("data/raw/custom/column_mapping.json")
 
     if not mapping_path.exists():
         return {}

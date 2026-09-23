@@ -7,7 +7,8 @@ from src.cleaning.validator import audit_raw_quality
 
 logger = get_logger("cleaning")
 
-PROCESSED_DATA_DIR = Path("data/processed")
+_ROOT = Path(__file__).resolve().parents[2]
+PROCESSED_DATA_DIR = _ROOT / "data" / "processed"
 
 
 def clean_transaction_data(df: pd.DataFrame, save_processed: bool = True) -> Tuple[pd.DataFrame, Dict[str, any]]:

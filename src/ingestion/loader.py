@@ -18,19 +18,19 @@ from src.cleaning.validator import (
 
 logger = get_logger("ingestion")
 
+_ROOT = Path(__file__).resolve().parents[2]
 UCI_DATASET_URL = "https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip"
-DEFAULT_ECOM_DIR = Path("data/raw/ecommerce")
-CUSTOM_DATA_DIR = Path("data/raw/custom")
-PROCESSED_DATA_DIR = Path("data/processed")
+DEFAULT_ECOM_DIR = _ROOT / "data" / "raw" / "ecommerce"
+CUSTOM_DATA_DIR = _ROOT / "data" / "raw" / "custom"
+PROCESSED_DATA_DIR = _ROOT / "data" / "processed"
 
 
 def download_uci_dataset(dest_dir: Path = DEFAULT_ECOM_DIR) -> Path:
     """Download official UCI Online Retail II zip archive if not already present."""
     dest_dir.mkdir(parents=True, exist_ok=True)
     zip_path = dest_dir / "online_retail_II.zip"
+    fallback_zip = _ROOT / "data" / "raw" / "online_retail_II.zip"
     
-    # Also check fallback root raw dir
-    fallback_zip = Path("data/raw/online_retail_II.zip")
     if zip_path.exists() and zip_path.stat().st_size > 0:
         return zip_path
     elif fallback_zip.exists() and fallback_zip.stat().st_size > 0:
@@ -58,7 +58,6 @@ def detect_custom_dataset(custom_dir: Path = CUSTOM_DATA_DIR) -> Optional[Path]:
     for ext in supported_extensions:
         files = [p for p in custom_dir.glob(f"*{ext}") if not p.name.startswith(".")]
         if files:
-            # Pick first found custom file
             logger.info(f"Detected custom dataset at {files[0]}")
             return files[0]
     return None
@@ -116,7 +115,7 @@ def load_raw_data(
     # 3. Default UCI Dataset
     if df is None:
         parquet_path = raw_dir / "online_retail_raw.parquet"
-        fallback_parquet = Path("data/raw/online_retail_raw.parquet")
+        fallback_parquet = _ROOT / "data" / "raw" / "online_retail_raw.parquet"
         
         if parquet_path.exists():
             logger.info(f"Loading default cached raw DataFrame from {parquet_path}")

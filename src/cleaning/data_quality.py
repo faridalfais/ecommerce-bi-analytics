@@ -5,7 +5,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger("data_quality")
 
-PROCESSED_DATA_DIR = Path("data/processed")
+_ROOT = Path(__file__).resolve().parents[2]
+PROCESSED_DATA_DIR = _ROOT / "data" / "processed"
 
 def generate_data_quality_report(quality_summary: dict, output_dir: Path = PROCESSED_DATA_DIR) -> Path:
     """Generate structured Data Quality Audit report in JSON and Markdown."""
