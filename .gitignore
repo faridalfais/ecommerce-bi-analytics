@@ -1,0 +1,54 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual Environment
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+
+# Large Data & Ingestion Files
+data/raw/*.csv
+data/raw/*.zip
+data/raw/*.parquet
+data/raw/ecommerce/*.csv
+data/raw/ecommerce/*.zip
+data/raw/ecommerce/*.parquet
+data/raw/custom/*.csv
+data/raw/custom/*.parquet
+data/raw/custom/*.xlsx
+data/raw/custom/*.xls
+!data/raw/custom/.gitkeep
+!data/raw/custom/column_mapping.example.json
+!data/raw/ecommerce/.gitkeep
+
+# Processed Parquet data (generated locally by pipeline)
+data/processed/*
+!data/processed/.gitkeep
+
+# Logs
+logs/*.log
+*.log
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

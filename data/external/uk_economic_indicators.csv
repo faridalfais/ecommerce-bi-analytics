@@ -1,0 +1,10 @@
+country_code,year,indicator_code,indicator_name,value
+GBR,2011,FP.CPI.TOTL.ZG,"Inflation, consumer prices (annual %)",3.8561124468282
+GBR,2010,FP.CPI.TOTL.ZG,"Inflation, consumer prices (annual %)",2.49265472467065
+GBR,2009,FP.CPI.TOTL.ZG,"Inflation, consumer prices (annual %)",1.96173173560109
+GBR,2011,NY.GDP.MKTP.KD.ZG,GDP growth (annual %),0.851437739020326
+GBR,2010,NY.GDP.MKTP.KD.ZG,GDP growth (annual %),2.26054460931586
+GBR,2009,NY.GDP.MKTP.KD.ZG,GDP growth (annual %),-4.58740819226323
+GBR,2011,NE.CON.PRVT.CD,Household final consumption expenditure (current US$),1698826513637.79
+GBR,2010,NE.CON.PRVT.CD,Household final consumption expenditure (current US$),1586904784656.05
+GBR,2009,NE.CON.PRVT.CD,Household final consumption expenditure (current US$),1543703069013.86

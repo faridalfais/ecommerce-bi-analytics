@@ -1,0 +1,11 @@
+{
+  "_comment": "Rename or copy this file to data/raw/custom/column_mapping.json to map custom headers to canonical pipeline names",
+  "transaction_id": "Invoice",
+  "transaction_date": "InvoiceDate",
+  "product_id": "StockCode",
+  "product_name": "Description",
+  "quantity": "Quantity",
+  "unit_price": "Price",
+  "customer_id": "CustomerID",
+  "country": "Country"
+}
