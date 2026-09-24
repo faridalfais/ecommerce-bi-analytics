@@ -7,7 +7,6 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import streamlit as st
-import pandas as pd
 from src.utils.i18n import get_text
 from dashboard.app import load_all_pipeline_data
 from dashboard.components.kpi_card import inject_mobile_css
@@ -18,6 +17,9 @@ inject_mobile_css()
 
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()
+
+# MEM: rfm_df and rfm_summary are already small, per-customer aggregates
+# (thousands of rows, not millions). No df_clean access needed here.
 rfm_df = data_store["rfm_df"]
 rfm_summary = data_store["rfm_summary"]
 

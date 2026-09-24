@@ -1,3 +1,4 @@
+import gc
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -9,6 +10,19 @@ logger = get_logger("cleaning")
 
 _ROOT = Path(__file__).resolve().parents[2]
 PROCESSED_DATA_DIR = _ROOT / "data" / "processed"
+
+
+def _downcast_df(df: pd.DataFrame) -> None:
+    """
+    In-place dtype downcasting to reduce memory footprint.
+    - float64  → float32  (halves float storage; sufficient for currency)
+    - int64    → smallest safe int type
+    Modifies the DataFrame in-place; returns None.
+    """
+    for col in df.select_dtypes(include=["float64"]).columns:
+        df[col] = df[col].astype("float32")
+    for col in df.select_dtypes(include=["int64"]).columns:
+        df[col] = pd.to_numeric(df[col], downcast="integer")
 
 
 def clean_transaction_data(df: pd.DataFrame, save_processed: bool = True) -> Tuple[pd.DataFrame, Dict[str, any]]:
@@ -126,12 +140,20 @@ def clean_transaction_data(df: pd.DataFrame, save_processed: bool = True) -> Tup
     
     logger.info(f"Data cleaning complete. Raw: {raw_count:,} -> Usable: {len(usable_df):,} records")
     logger.info(f"Total Cleaned Revenue: £{quality_summary['total_cleaned_revenue']:,.2f}")
-    
+
     if save_processed:
+        # MEM: Downcast numeric columns before writing to parquet to reduce
+        # the on-disk and in-memory footprint by ~30-40%.
+        _downcast_df(usable_df)
         usable_df.to_parquet(PROCESSED_DATA_DIR / "cleaned_transactions.parquet", index=False)
+
+        # Save the flagged full-transaction file then immediately free it
+        _downcast_df(df)
         df.to_parquet(PROCESSED_DATA_DIR / "all_transactions_flagged.parquet", index=False)
+        del df
+        gc.collect()
         logger.info(f"Saved processed files to {PROCESSED_DATA_DIR}")
-        
+
     return usable_df, quality_summary
 
 

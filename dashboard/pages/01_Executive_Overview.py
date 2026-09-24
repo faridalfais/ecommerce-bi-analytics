@@ -7,7 +7,6 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import streamlit as st
-import pandas as pd
 from src.utils.i18n import get_text
 from dashboard.app import load_all_pipeline_data
 from dashboard.components.kpi_card import render_kpi_card, inject_mobile_css
@@ -20,13 +19,16 @@ inject_mobile_css()
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()
 kpis = data_store["kpis"]
-df_clean = data_store["df_clean"]
+
+# MEM: monthly_revenue is a pre-aggregated ~24-row DataFrame already in the
+# data store — no need to load df_clean here at all.
+monthly = data_store["monthly_revenue"]
 
 st.title(get_text("nav_executive", lang))
 st.caption(
     f"Dataset: UCI Online Retail II / Ingested Data  ·  "
     f"Period: 2009-12-01 – {kpis.get('max_transaction_date', 'N/A')}  ·  "
-    f"Transactions: {len(df_clean):,}"
+    f"Transactions: {data_store['record_count']:,}"
 )
 st.markdown("---")
 
@@ -58,15 +60,7 @@ st.markdown("---")
 # Charts Row — responsive: on mobile, each chart takes full width (CSS stacks columns)
 col1, col2 = st.columns([3, 2])
 with col1:
-    if not df_clean.empty and "InvoiceDate" in df_clean.columns:
-        monthly = (
-            df_clean
-            .set_index('InvoiceDate')
-            .resample('ME')['TotalLineAmount']
-            .sum()
-            .reset_index()
-        )
-        monthly.columns = ['Date', 'Revenue']
+    if not monthly.empty:
         fig_rev = plot_revenue_trend(monthly, title=get_text("chart_revenue_trend", lang))
         st.plotly_chart(fig_rev, use_container_width=True)
     else:

@@ -6,8 +6,8 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
 from src.utils.i18n import get_text
 from dashboard.app import load_all_pipeline_data
 from dashboard.components.kpi_card import inject_mobile_css
@@ -20,7 +20,10 @@ inject_mobile_css()
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()
 macro_df = data_store["macro_df"]
-df_clean = data_store["df_clean"]
+
+# MEM: Use pre-aggregated monthly_revenue from data_store — was previously
+# re-aggregated from df_clean on every page load.
+monthly = data_store["monthly_revenue"]
 
 st.title(get_text("nav_market", lang))
 st.caption("UK macro-economic context (2009–2011) overlaid with company transaction history.")
@@ -45,10 +48,7 @@ if macro_df is not None and not macro_df.empty:
         )
 
     # Correlation analysis — requires both datasets
-    if not df_clean.empty and "InvoiceDate" in df_clean.columns:
-        monthly = df_clean.set_index('InvoiceDate').resample('ME')['TotalLineAmount'].sum().reset_index()
-        monthly.columns = ['Date', 'Revenue']
-
+    if not monthly.empty:
         try:
             stats_res = analyze_macro_correlations(monthly, macro_df)
         except Exception as e:

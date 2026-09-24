@@ -1,3 +1,4 @@
+import gc
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -18,27 +19,32 @@ def train_churn_prediction_model(df_clean: pd.DataFrame, inactivity_threshold_da
     Customers whose last purchase occurred > 90 days prior to the cutoff date are labeled as Churned (1).
     """
     logger.info("Building Customer Inactivity / Churn Prediction Pipeline...")
-    valid_df = df_clean.dropna(subset=['CustomerID']).copy()
-    valid_df['InvoiceDate'] = pd.to_datetime(valid_df['InvoiceDate'])
-    
-    max_date = valid_df['InvoiceDate'].max()
+    # MEM: Use view for initial filter; parse dates in a helper series only.
+    cust_mask = df_clean['CustomerID'].notna()
+    valid_df = df_clean[cust_mask]
+    invoice_dates = pd.to_datetime(valid_df['InvoiceDate'])
+
+    max_date = invoice_dates.max()
     cutoff_date = max_date - pd.Timedelta(days=inactivity_threshold_days)
-    
+
     # Historical observation data up to cutoff_date
-    obs_df = valid_df[valid_df['InvoiceDate'] <= cutoff_date].copy()
-    
+    obs_mask = invoice_dates <= cutoff_date
+    obs_df = valid_df[obs_mask]
+
     if len(obs_df) == 0:
         logger.warning("Cutoff date results in empty observation window. Adjusting cutoff...")
         cutoff_date = max_date - pd.Timedelta(days=60)
-        obs_df = valid_df[valid_df['InvoiceDate'] <= cutoff_date].copy()
-        
+        obs_mask = invoice_dates <= cutoff_date
+        obs_df = valid_df[obs_mask]
+
     # Build Customer Feature Vectors from observation window
-    cust_features = obs_df.groupby('CustomerID').agg(
-        Recency=('InvoiceDate', lambda x: (cutoff_date - x.max()).days),
+    obs_dates = pd.to_datetime(obs_df['InvoiceDate'])
+    cust_features = obs_df.assign(_InvDate=obs_dates).groupby('CustomerID').agg(
+        Recency=('_InvDate', lambda x: (cutoff_date - x.max()).days),
         Frequency=('Invoice', 'nunique'),
         Monetary=('TotalLineAmount', 'sum'),
-        FirstPurchase=('InvoiceDate', 'min'),
-        LastPurchase=('InvoiceDate', 'max'),
+        FirstPurchase=('_InvDate', 'min'),
+        LastPurchase=('_InvDate', 'max'),
         UniqueProducts=('StockCode', 'nunique'),
         Country=('Country', 'last')
     ).reset_index()
@@ -48,10 +54,18 @@ def train_churn_prediction_model(df_clean: pd.DataFrame, inactivity_threshold_da
     cust_features['LifespanDays'] = (cust_features['LastPurchase'] - cust_features['FirstPurchase']).dt.days
     cust_features['PurchaseVelocity'] = (cust_features['Frequency'] / (cust_features['LifespanDays'] + 1)).round(4)
     cust_features['IsDomestic'] = (cust_features['Country'] == 'United Kingdom').astype(int)
-    
+
+    # MEM: free obs_df as soon as feature engineering is done
+    del obs_df
+    gc.collect()
+
     # Ground Truth Churn Label: Did customer make ANY purchase after cutoff_date?
-    future_purchasers = valid_df[valid_df['InvoiceDate'] > cutoff_date]['CustomerID'].unique()
+    future_purchasers = valid_df.loc[invoice_dates > cutoff_date, 'CustomerID'].unique()
     cust_features['IsChurned'] = (~cust_features['CustomerID'].isin(future_purchasers)).astype(int)
+
+    # MEM: free the large valid_df + invoice_dates views
+    del valid_df, invoice_dates, future_purchasers
+    gc.collect()
     
     logger.info(f"Feature matrix built for {len(cust_features)} customers. Churn rate: {cust_features['IsChurned'].mean()*100:.2f}%")
     
@@ -106,6 +120,13 @@ def train_churn_prediction_model(df_clean: pd.DataFrame, inactivity_threshold_da
             best_f1 = f1
             best_model_name = name
             best_model_obj = model
+        else:
+            # MEM: discard non-best models immediately to free tree memory
+            del model
+
+    # MEM: free scaled arrays — they are not needed after evaluation
+    del X_train_scaled, X_test_scaled, X_train, X_test, y_train, y_test
+    gc.collect()
             
     # Feature Importances from best tree model
     feature_importances = {}

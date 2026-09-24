@@ -11,14 +11,16 @@ def calculate_rfm(df: pd.DataFrame, reference_date: datetime = None) -> pd.DataF
     Filters out missing CustomerID transactions.
     """
     logger.info("Computing Customer RFM metrics...")
-    valid_df = df.dropna(subset=['CustomerID']).copy()
-    valid_df['InvoiceDate'] = pd.to_datetime(valid_df['InvoiceDate'])
-    
+    # MEM: Filter to a view (no copy); parse dates into a separate series only.
+    cust_mask = df['CustomerID'].notna()
+    valid_df = df[cust_mask]
+    invoice_dates = pd.to_datetime(valid_df['InvoiceDate'])  # single-column copy
+
     if reference_date is None:
-        reference_date = valid_df['InvoiceDate'].max() + pd.Timedelta(days=1)
-        
+        reference_date = invoice_dates.max() + pd.Timedelta(days=1)
+
     rfm = valid_df.groupby('CustomerID').agg(
-        Recency=('InvoiceDate', lambda x: (reference_date - x.max()).days),
+        Recency=('InvoiceDate', lambda x: (reference_date - pd.to_datetime(x).max()).days),
         Frequency=('Invoice', 'nunique'),
         Monetary=('TotalLineAmount', 'sum'),
         FirstPurchase=('InvoiceDate', 'min'),

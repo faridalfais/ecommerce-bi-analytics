@@ -7,7 +7,6 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 import streamlit as st
-import pandas as pd
 from src.utils.i18n import get_text
 from dashboard.app import load_all_pipeline_data
 from dashboard.components.kpi_card import inject_mobile_css
@@ -18,26 +17,18 @@ inject_mobile_css()
 
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()
-df_clean = data_store["df_clean"]
+
+# MEM: prod_summary is a pre-aggregated per-SKU DataFrame (thousands of rows,
+# not millions). No df_clean access needed here.
+prod_summary = data_store["prod_summary"]
 
 st.title(get_text("nav_products", lang))
 st.caption("Revenue and volume analysis at the SKU level. All prices in GBP (£).")
 st.markdown("---")
 
-if df_clean.empty:
+if prod_summary.empty:
     st.error("No transaction data available.")
     st.stop()
-
-prod_summary = df_clean.groupby(['StockCode', 'Description']).agg(
-    total_units_sold=('Quantity', 'sum'),
-    total_orders=('Invoice', 'nunique'),
-    total_revenue=('TotalLineAmount', 'sum'),
-    avg_price=('Price', 'mean')
-).reset_index()
-
-prod_summary['total_revenue'] = prod_summary['total_revenue'].round(2)
-prod_summary['avg_price'] = prod_summary['avg_price'].round(2)
-prod_summary = prod_summary.sort_values(by='total_revenue', ascending=False)
 
 # Responsive column layout — collapses to stacked on mobile via CSS
 col1, col2 = st.columns([3, 2])

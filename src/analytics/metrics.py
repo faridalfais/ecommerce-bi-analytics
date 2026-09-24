@@ -6,35 +6,41 @@ logger = get_logger("metrics")
 
 def compute_overall_kpis(df_clean: pd.DataFrame) -> dict:
     """Compute top-level business executive KPIs from cleaned transaction dataset."""
-    valid_df = df_clean[~df_clean['IsCancelled']].copy()
-    
+    # MEM: Use a boolean-indexed view — no full copy of the 1M-row DataFrame.
+    # All groupby/agg operations work on views; only the tiny date series is copied.
+    valid_mask = ~df_clean['IsCancelled']
+    valid_df = df_clean[valid_mask]
+
     total_revenue = float(valid_df['TotalLineAmount'].sum())
     total_orders = int(valid_df['Invoice'].nunique())
     total_units = int(valid_df['Quantity'].sum())
-    
-    reg_df = valid_df.dropna(subset=['CustomerID'])
+
+    reg_mask = valid_mask & df_clean['CustomerID'].notna()
+    reg_df = df_clean[reg_mask]
     active_customers = int(reg_df['CustomerID'].nunique())
-    
+
     aov = round(total_revenue / total_orders, 2) if total_orders > 0 else 0.0
     arpu = round(total_revenue / active_customers, 2) if active_customers > 0 else 0.0
-    
+
     # Customer Repeat Purchase Rate
     cust_orders = reg_df.groupby('CustomerID')['Invoice'].nunique()
     repeat_cust_count = int((cust_orders > 1).sum())
     repeat_rate_pct = round((repeat_cust_count / active_customers * 100.0), 2) if active_customers > 0 else 0.0
-    
-    # Monthly Growth Rate
-    valid_df['InvoiceDate'] = pd.to_datetime(valid_df['InvoiceDate'])
-    monthly_rev = valid_df.resample('ME', on='InvoiceDate')['TotalLineAmount'].sum()
+
+    # Monthly Growth Rate — work on the already-datetime InvoiceDate column
+    dates = pd.to_datetime(valid_df['InvoiceDate'])  # series copy only, not whole DF
+    monthly_rev = valid_df['TotalLineAmount'].groupby(dates.dt.to_period('M')).sum()
     if len(monthly_rev) >= 2:
         latest_mom = round(((monthly_rev.iloc[-1] - monthly_rev.iloc[-2]) / monthly_rev.iloc[-2] * 100.0), 2)
     else:
         latest_mom = 0.0
-        
+
+    max_date = dates.max().strftime('%Y-%m-%d %H:%M')
+
     # Top Country Share
-    uk_rev = float(valid_df[valid_df['Country'] == 'United Kingdom']['TotalLineAmount'].sum())
+    uk_rev = float(valid_df.loc[valid_df['Country'] == 'United Kingdom', 'TotalLineAmount'].sum())
     uk_share_pct = round((uk_rev / total_revenue * 100.0), 2) if total_revenue > 0 else 0.0
-    
+
     return {
         "total_revenue": total_revenue,
         "total_orders": total_orders,
@@ -45,7 +51,7 @@ def compute_overall_kpis(df_clean: pd.DataFrame) -> dict:
         "repeat_purchase_rate_pct": repeat_rate_pct,
         "latest_mom_growth_pct": latest_mom,
         "uk_revenue_share_pct": uk_share_pct,
-        "max_transaction_date": valid_df['InvoiceDate'].max().strftime('%Y-%m-%d %H:%M')
+        "max_transaction_date": max_date,
     }
 
 def generate_executive_insights(kpi_dict: dict, rfm_summary: pd.DataFrame = None, forecast_dict: dict = None) -> dict:

@@ -6,10 +6,10 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
 from src.utils.i18n import get_text
-from dashboard.app import load_all_pipeline_data
+from dashboard.app import load_all_pipeline_data, load_clean_df_columns
 from dashboard.components.kpi_card import inject_mobile_css
 from dashboard.components.charts import plot_churn_risk
 from src.anomaly.anomaly_detector import detect_revenue_anomalies
@@ -20,7 +20,21 @@ inject_mobile_css()
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()
 churn_results = data_store["churn_results"]
-df_clean = data_store["df_clean"]
+
+
+@st.cache_data(ttl=None, show_spinner="Running anomaly detection...")
+def _cached_anomaly_detection() -> pd.DataFrame:
+    """
+    MEM: Run IsolationForest anomaly detection once and cache the result.
+    Without this, the model re-trains and the full daily aggregation re-runs
+    on every page navigation — expensive and memory-wasteful.
+    Only the columns needed for daily aggregation are loaded.
+    """
+    df = load_clean_df_columns(("InvoiceDate", "Invoice", "TotalLineAmount", "Quantity", "CustomerID"))
+    if df.empty:
+        return pd.DataFrame()
+    return detect_revenue_anomalies(df)
+
 
 st.title(get_text("nav_ml", lang))
 st.caption(
@@ -66,12 +80,14 @@ st.markdown("---")
 st.subheader("Revenue Anomaly Detection")
 st.caption("Daily revenue aggregates flagged by IsolationForest and/or |Z-score| > 2.5.")
 
-anomalies_df = detect_revenue_anomalies(df_clean)
-anomaly_events = anomalies_df[anomalies_df['IsAnomaly'] == 1].copy()
-
-st.caption(f"Anomalous days identified: **{len(anomaly_events)}**")
-st.dataframe(
-    anomaly_events[['TransactionDate', 'DailyOrders', 'DailyRevenue', 'ZScore', 'AnomalyType']]
-    .sort_values(by='DailyRevenue', ascending=False),
-    use_container_width=True,
-)
+anomalies_df = _cached_anomaly_detection()
+if not anomalies_df.empty:
+    anomaly_events = anomalies_df[anomalies_df['IsAnomaly'] == 1]
+    st.caption(f"Anomalous days identified: **{len(anomaly_events)}**")
+    st.dataframe(
+        anomaly_events[['TransactionDate', 'DailyOrders', 'DailyRevenue', 'ZScore', 'AnomalyType']]
+        .sort_values(by='DailyRevenue', ascending=False),
+        use_container_width=True,
+    )
+else:
+    st.warning("Anomaly detection data unavailable.")

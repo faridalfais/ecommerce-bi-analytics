@@ -1,7 +1,7 @@
 {
     "source_name": "World Bank Open Data API",
     "source_url": "http://api.worldbank.org/v2/",
-    "retrieval_date": "2026-09-24 17:40:40",
+    "retrieval_date": "2026-09-25 01:28:37",
     "description": "Annual macro-economic indicators for United Kingdom (GBR) matching retailer operational timeframe (2009-2011).",
     "relevant_indicators": {
         "FP.CPI.TOTL.ZG": "Inflation, consumer prices (annual %)",

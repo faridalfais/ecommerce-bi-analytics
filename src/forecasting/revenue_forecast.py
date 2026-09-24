@@ -20,15 +20,26 @@ def forecast_monthly_revenue(df_clean: pd.DataFrame, forecast_horizon_months: in
     evaluation metrics (MAE, RMSE, MAPE), and 80%/95% confidence intervals.
     """
     logger.info("Executing Monthly Revenue Time-Series Forecasting Pipeline...")
-    
-    # Aggregate to monthly revenue series
-    df_clean['InvoiceDate'] = pd.to_datetime(df_clean['InvoiceDate'])
-    monthly = df_clean.set_index('InvoiceDate').resample('ME')['TotalLineAmount'].sum().reset_index()
-    monthly.columns = ['Date', 'Revenue']
-    monthly = monthly.sort_values(by='Date').reset_index(drop=True)
+
+    # MEM: Build a minimal 2-column DataFrame — no mutation of df_clean.
+    _tmp = pd.DataFrame({
+        "InvoiceDate": pd.to_datetime(df_clean["InvoiceDate"]),
+        "TotalLineAmount": df_clean["TotalLineAmount"],
+    })
+    monthly = (
+        _tmp.set_index("InvoiceDate")
+        .resample("ME")["TotalLineAmount"]
+        .sum()
+        .reset_index()
+        .rename(columns={"InvoiceDate": "Date", "TotalLineAmount": "Revenue"})
+        .sort_values("Date")
+        .reset_index(drop=True)
+    )
+    del _tmp
+    dates = pd.to_datetime(df_clean["InvoiceDate"])  # for max_dt below
     
     # Drop incomplete trailing month if last month has < 10 days of data
-    max_dt = df_clean['InvoiceDate'].max()
+    max_dt = dates.max()
     if max_dt.day < 10:
         monthly = monthly.iloc[:-1].copy()
         
