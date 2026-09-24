@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from src.utils.logger import get_logger
 
 logger = get_logger("forecasting")
@@ -68,19 +68,19 @@ def forecast_monthly_revenue(df_clean: pd.DataFrame, forecast_horizon_months: in
         "Naive Baseline": {
             "pred": test_naive,
             "MAE": round(float(mean_absolute_error(test['Revenue'], test_naive)), 2),
-            "RMSE": round(float(root_mean_squared_error(test['Revenue'], test_naive)), 2),
+            "RMSE": round(float(np.sqrt(mean_squared_error(test['Revenue'], test_naive))), 2),
             "MAPE": round(calculate_mape(test['Revenue'], test_naive), 2)
         },
         "Holt-Winters": {
             "pred": test_hw,
             "MAE": round(float(mean_absolute_error(test['Revenue'], test_hw)), 2),
-            "RMSE": round(float(root_mean_squared_error(test['Revenue'], test_hw)), 2),
+            "RMSE": round(float(np.sqrt(mean_squared_error(test['Revenue'], test_hw))), 2),
             "MAPE": round(calculate_mape(test['Revenue'], test_hw), 2)
         },
         "SARIMA": {
             "pred": test_sarima,
             "MAE": round(float(mean_absolute_error(test['Revenue'], test_sarima)), 2),
-            "RMSE": round(float(root_mean_squared_error(test['Revenue'], test_sarima)), 2),
+            "RMSE": round(float(np.sqrt(mean_squared_error(test['Revenue'], test_sarima))), 2),
             "MAPE": round(calculate_mape(test['Revenue'], test_sarima), 2)
         }
     }

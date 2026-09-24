@@ -37,10 +37,17 @@ DATABASE_DIR = _ROOT / "database"
 def get_db_engine():
     """Create and return SQLAlchemy database engine or SQLite connection wrapper."""
     if _HAS_SQLALCHEMY:
-        if DATABASE_URL.startswith("sqlite"):
-            db_path = DATABASE_URL.replace("sqlite:///", "")
-            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        return create_engine(DATABASE_URL, echo=False)
+        db_url = DATABASE_URL
+        if db_url.startswith("sqlite"):
+            # Resolve relative sqlite paths to absolute using repo root
+            # This prevents CWD-dependent path failures on Streamlit Cloud
+            db_path_str = db_url.replace("sqlite:///", "", 1)
+            db_path = Path(db_path_str)
+            if not db_path.is_absolute():
+                db_path = _ROOT / db_path_str
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            db_url = f"sqlite:///{db_path.as_posix()}"
+        return create_engine(db_url, echo=False)
     else:
         # Fallback to direct SQLite connection wrapper
         db_path = DATABASE_DIR / "ecommerce.db"

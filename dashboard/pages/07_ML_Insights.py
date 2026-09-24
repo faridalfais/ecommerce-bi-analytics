@@ -10,10 +10,12 @@ import streamlit as st
 import pandas as pd
 from src.utils.i18n import get_text
 from dashboard.app import load_all_pipeline_data
+from dashboard.components.kpi_card import inject_mobile_css
 from dashboard.components.charts import plot_churn_risk
 from src.anomaly.anomaly_detector import detect_revenue_anomalies
 
 st.set_page_config(page_title="ML Insights & Risk Modeling", layout="wide")
+inject_mobile_css()
 
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()

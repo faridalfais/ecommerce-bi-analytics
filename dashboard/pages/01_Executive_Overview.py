@@ -10,11 +10,12 @@ import streamlit as st
 import pandas as pd
 from src.utils.i18n import get_text
 from dashboard.app import load_all_pipeline_data
-from dashboard.components.kpi_card import render_kpi_card
+from dashboard.components.kpi_card import render_kpi_card, inject_mobile_css
 from dashboard.components.charts import plot_revenue_trend, plot_rfm_segments
 from dashboard.components.insights_card import render_insights_card
 
 st.set_page_config(page_title="Executive Overview — BI Analytics", layout="wide")
+inject_mobile_css()
 
 lang = st.session_state.get("lang", "en")
 data_store = load_all_pipeline_data()
@@ -29,7 +30,7 @@ st.caption(
 )
 st.markdown("---")
 
-# Responsive KPI Rows (2 rows of 3 columns)
+# Responsive KPI Rows (2 rows of 3 columns — collapses to stacked on mobile via CSS)
 r1_c1, r1_c2, r1_c3 = st.columns(3)
 with r1_c1:
     render_kpi_card(get_text("kpi_total_revenue", lang), f"£{kpis['total_revenue']:,.2f}")
@@ -54,23 +55,30 @@ with r2_c3:
 
 st.markdown("---")
 
-# Charts Row
+# Charts Row — responsive: on mobile, each chart takes full width (CSS stacks columns)
 col1, col2 = st.columns([3, 2])
 with col1:
-    monthly = (
-        df_clean
-        .set_index('InvoiceDate')
-        .resample('ME')['TotalLineAmount']
-        .sum()
-        .reset_index()
-    )
-    monthly.columns = ['Date', 'Revenue']
-    fig_rev = plot_revenue_trend(monthly, title=get_text("chart_revenue_trend", lang))
-    st.plotly_chart(fig_rev, use_container_width=True)
+    if not df_clean.empty and "InvoiceDate" in df_clean.columns:
+        monthly = (
+            df_clean
+            .set_index('InvoiceDate')
+            .resample('ME')['TotalLineAmount']
+            .sum()
+            .reset_index()
+        )
+        monthly.columns = ['Date', 'Revenue']
+        fig_rev = plot_revenue_trend(monthly, title=get_text("chart_revenue_trend", lang))
+        st.plotly_chart(fig_rev, use_container_width=True)
+    else:
+        st.warning("Revenue trend data unavailable.")
 
 with col2:
-    fig_rfm = plot_rfm_segments(data_store['rfm_summary'], title=get_text("chart_rfm_segments", lang))
-    st.plotly_chart(fig_rfm, use_container_width=True)
+    rfm_summary = data_store.get("rfm_summary")
+    if rfm_summary is not None and not rfm_summary.empty:
+        fig_rfm = plot_rfm_segments(rfm_summary, title=get_text("chart_rfm_segments", lang))
+        st.plotly_chart(fig_rfm, use_container_width=True)
+    else:
+        st.warning("RFM segment data unavailable (requires CustomerID column).")
 
 st.markdown("---")
 

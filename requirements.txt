@@ -2,7 +2,8 @@ pandas>=2.0.0
 numpy>=1.24.0
 openpyxl>=3.1.0
 sqlalchemy>=2.0.0
-scikit-learn>=1.3.0
+# root_mean_squared_error requires scikit-learn >= 1.4.0
+scikit-learn>=1.4.0
 statsmodels>=0.14.0
 scipy>=1.10.0
 plotly>=5.15.0
@@ -10,5 +11,8 @@ streamlit>=1.28.0
 requests>=2.31.0
 pytest>=7.4.0
 python-dotenv>=1.0.0
-psycopg2-binary>=2.9.0
-duckdb>=1.0.0
+# psycopg2-binary: optional PostgreSQL adapter; only needed if DATABASE_URL points to PostgreSQL
+# Uncomment below if using PostgreSQL; leave commented for SQLite-only deployments
+# psycopg2-binary>=2.9.0
+# duckdb: not used in current codebase; removed to reduce cold-start install time on Streamlit Cloud
+# duckdb>=1.0.0

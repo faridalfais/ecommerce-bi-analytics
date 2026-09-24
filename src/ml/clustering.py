@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from typing import Tuple
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -7,7 +8,7 @@ from src.utils.logger import get_logger
 
 logger = get_logger("clustering")
 
-def run_kmeans_segmentation(rfm_df: pd.DataFrame, max_k: int = 6) -> tuple[pd.DataFrame, dict]:
+def run_kmeans_segmentation(rfm_df: pd.DataFrame, max_k: int = 6) -> Tuple[pd.DataFrame, dict]:
     """
     Perform Unsupervised K-Means Clustering on RFM features.
     Features are log-transformed (to handle skewness) and standard scaled.
@@ -60,7 +61,7 @@ def run_kmeans_segmentation(rfm_df: pd.DataFrame, max_k: int = 6) -> tuple[pd.Da
     # Assign intuitive cluster names based on revenue rank
     cluster_profiles = cluster_profiles.sort_values(by='AvgMonetary', ascending=False).reset_index(drop=True)
     cluster_name_map = {}
-    names = ['Cluster 0: High-Value VIPs', 'Cluster 1: Loyal Regulars', 'Cluster 2: Ocassional Buyers', 'Cluster 3: Dormant/At-Risk', 'Cluster 4: Low-Touch']
+    names = ['Cluster 0: High-Value VIPs', 'Cluster 1: Loyal Regulars', 'Cluster 2: Occasional Buyers', 'Cluster 3: Dormant/At-Risk', 'Cluster 4: Low-Touch']
     
     for idx, row in cluster_profiles.iterrows():
         name = names[idx] if idx < len(names) else f'Cluster {idx}: Group {idx+1}'
